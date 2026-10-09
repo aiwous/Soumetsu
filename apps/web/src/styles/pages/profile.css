@@ -229,6 +229,13 @@
   padding-bottom: 48px;
 }
 
+/* The entrance animation makes the sidebar and the column after it separate stacking contexts, so on
+   mobile, where the column sits below, the peak and streak cards would open underneath it. */
+.profile > aside {
+  position: relative;
+  z-index: 2;
+}
+
 .ranks {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -378,6 +385,64 @@
 }
 
 .stats dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.daily {
+  margin-top: 20px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--blue);
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--panel-2);
+}
+
+.daily h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.daily h3 a {
+  color: inherit;
+}
+
+.daily-head {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.daily-head b {
+  display: block;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.daily-list {
+  margin: 0;
+  padding-top: 6px;
+}
+
+.daily-list div {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.daily-list dt {
+  color: var(--muted);
+}
+
+.daily-list dd {
   margin: 0;
   font-weight: 500;
 }
@@ -763,4 +828,37 @@
   align-items: center;
   gap: 8px;
   cursor: pointer;
+}
+
+.history-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  padding: 8px;
+}
+
+.history-links a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: var(--panel-2);
+}
+
+.history-links a:hover {
+  background: var(--active);
+  color: #fff;
+}
+
+.history-links a i:first-child {
+  width: 16px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.history-links a i:last-child {
+  margin-left: auto;
+  color: var(--faint);
+  font-size: 11px;
 }

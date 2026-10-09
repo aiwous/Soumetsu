@@ -500,3 +500,104 @@ model whitelist {
   modes   Int @default(511) @db.UnsignedInt
 }
 
+
+model commission_days {
+  id           BigInt             @id @default(autoincrement())
+  user_id      Int
+  day          DateTime           @db.Date
+  points       Int                @default(0)
+  claimed_tier Int                @default(0) @db.TinyInt
+  completed_at DateTime?          @db.DateTime(0)
+  rolled_at    DateTime           @db.DateTime(0)
+  tasks        commission_tasks[]
+
+  @@unique([user_id, day], map: "uq_commission_days_user_day")
+  @@index([user_id, completed_at], map: "idx_commission_days_user_completed")
+}
+
+model commission_tasks {
+  id           BigInt          @id @default(autoincrement())
+  day_id       BigInt
+  template     String          @db.VarChar(48)
+  params       Json
+  points       Int             @db.SmallInt
+  target       Int
+  progress     Int             @default(0)
+  completed_at DateTime?       @db.DateTime(0)
+  day          commission_days @relation(fields: [day_id], references: [id], onDelete: Cascade, map: "fk_commission_tasks_day")
+
+  @@index([day_id], map: "idx_commission_tasks_day")
+}
+
+model commission_settings {
+  id         Int      @id @db.TinyInt
+  settings   Json
+  updated_at DateTime @db.DateTime(0)
+}
+
+model user_decorations {
+  user_id    Int
+  decoration String   @db.VarChar(32)
+  price_paid Int
+  bought_at  DateTime @db.DateTime(0)
+
+  @@id([user_id, decoration])
+}
+
+model shop_items {
+  id          Int              @id @default(autoincrement())
+  type        String           @db.VarChar(32)
+  item_key    String?          @db.VarChar(32)
+  name        String           @db.VarChar(64)
+  description String           @db.VarChar(255)
+  price       Int
+  enabled     Boolean          @default(true)
+  sort_order  Int              @default(0)
+  purchases   shop_purchases[]
+
+  @@unique([type, item_key], map: "uq_shop_items_type_key")
+}
+
+model shop_purchases {
+  id         BigInt     @id @default(autoincrement())
+  user_id    Int
+  item_id    Int
+  price_paid Int
+  metadata   Json?
+  bought_at  DateTime   @db.DateTime(0)
+  item       shop_items @relation(fields: [item_id], references: [id], map: "fk_shop_purchases_item")
+
+  @@index([user_id, bought_at], map: "idx_shop_purchases_user")
+}
+
+model shop_settings {
+  id         Int      @id @db.TinyInt
+  settings   Json
+  updated_at DateTime @db.DateTime(0)
+}
+
+model casino_game_history {
+  id          BigInt    @id @default(autoincrement())
+  user_id     Int
+  game_type   String    @db.VarChar(32)
+  bet_amount  Int
+  multiplier  Decimal   @default(0) @db.Decimal(6, 2)
+  payout      Int       @default(0)
+  result_data Json?
+  played_at   DateTime? @default(now()) @db.Timestamp(0)
+
+  @@index([user_id], map: "idx_user_id")
+  @@index([played_at], map: "idx_played_at")
+}
+
+model casino_game_config {
+  id          Int       @id @default(autoincrement())
+  game_type   String    @unique(map: "uq_casino_game_config_type") @db.VarChar(32)
+  min_bet     Int       @default(10)
+  max_bet     Int       @default(100000)
+  house_edge  Decimal   @default(0.0250) @db.Decimal(5, 4)
+  enabled     Boolean   @default(true)
+  config_json Json?
+  created_at  DateTime? @default(now()) @db.Timestamp(0)
+  updated_at  DateTime? @default(now()) @db.Timestamp(0)
+}

@@ -11,6 +11,7 @@ import { Failure } from './respond';
 const BOT_ID = 999;
 const PUBLIC = 1;
 const NORMAL = 2;
+const ADMIN_ACCESS_RAP = 8;
 export const MAX_LENGTH = 1000;
 const PAGE = 50;
 
@@ -110,6 +111,22 @@ async function markRead(userId: number, peerId: number, messageId: number) {
     ON DUPLICATE KEY UPDATE last_read_id = GREATEST(last_read_id, ${messageId})`;
 }
 
+// Why a player can't send messages at all, as an error code, or null when they can.
+export function sendBlock(privileges: number, silenceEnd: number, now = Date.now() / 1000) {
+  if (!(privileges & NORMAL)) return 'site.forbidden';
+  if (!(privileges & PUBLIC)) return 'site.messages_restricted';
+  if (silenceEnd > now) return 'site.messages_silenced';
+  return null;
+}
+
+// Private and channel messages share one budget.
+export async function limitRate(senderId: number) {
+  const rate = `soumetsu:messages_rate:${senderId}`;
+  const sent = await redis.incr(rate);
+  if (sent === 1) await redis.expire(rate, 10);
+  if (sent > 5) throw new Failure(429, 'site.messages_too_fast');
+}
+
 // The same rules as messaging in game: banned, restricted and silenced players can't send.
 export async function send(senderId: number, peerId: number, content: string) {
   if (peerId === senderId || peerId === BOT_ID) throw new Failure(400, 'site.invalid_request');
@@ -118,19 +135,18 @@ export async function send(senderId: number, peerId: number, content: string) {
       where: { id: senderId },
       select: { username: true, privileges: true, silence_end: true }
     }),
-    db.users.findUnique({ where: { id: peerId }, select: { deleted: true } })
+    db.users.findUnique({ where: { id: peerId }, select: { deleted: true, privileges: true } })
   ]);
   if (!sender || !peer || peer.deleted) throw new Failure(404, 'users.user_not_found');
 
   const privileges = Number(sender.privileges);
-  if (!(privileges & NORMAL)) throw new Failure(403, 'site.forbidden');
-  if (!(privileges & PUBLIC)) throw new Failure(403, 'site.messages_restricted');
-  if (sender.silence_end > Date.now() / 1000) throw new Failure(403, 'site.messages_silenced');
-
-  const rate = `soumetsu:messages_rate:${senderId}`;
-  const sent = await redis.incr(rate);
-  if (sent === 1) await redis.expire(rate, 10);
-  if (sent > 5) throw new Failure(429, 'site.messages_too_fast');
+  // In game a restricted player can't be reached at all, so the site reads the same as a missing user, except for staff.
+  if (!(Number(peer.privileges) & PUBLIC) && !(privileges & ADMIN_ACCESS_RAP)) {
+    throw new Failure(404, 'users.user_not_found');
+  }
+  const blocked = sendBlock(privileges, sender.silence_end);
+  if (blocked) throw new Failure(403, blocked);
+  await limitRate(senderId);
 
   const id = await db.$transaction(async (tx) => {
     await tx.$executeRaw`

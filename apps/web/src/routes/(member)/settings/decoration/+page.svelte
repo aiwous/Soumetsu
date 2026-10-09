@@ -21,17 +21,18 @@
   const groupNames: Record<Decoration['category'], () => string> = {
     Default: m.settings_decoration_group_default,
     Supporter: m.settings_decoration_group_supporter,
-    Staff: m.settings_decoration_group_staff
+    Staff: m.settings_decoration_group_staff,
+    Shop: m.settings_decoration_group_shop
   };
 
   const unlocked = $derived(loaded.state.status === 'ready' ? loaded.state.data.unlocked : []);
   const groups = $derived(
-    (['Default', 'Supporter', 'Staff'] as const)
+    (['Default', 'Supporter', 'Staff', 'Shop'] as const)
       .map((category) => ({
         category,
         items: decorations.filter((d) => d.category === category)
       }))
-      // Staff styles stay hidden from everyone else; locked supporter ones are shown greyed out.
+      // Staff styles stay hidden until unlocked; locked supporter and shop ones are shown greyed out.
       .filter(
         (group) => group.category !== 'Staff' || group.items.some((d) => unlocked.includes(d.key))
       )
@@ -76,16 +77,21 @@
         <div class="swatches">
           {#each group.items as item (item.key)}
             {@const locked = !unlocked.includes(item.key)}
-            <label class="swatch" class:locked>
-              <input
-                type="radio"
-                name="decoration"
-                value={item.key}
-                bind:group={chosen}
-                disabled={locked}
-              />
-              <span><b class="deco-{item.key}">{item.name}</b></span>
-            </label>
+            <div class="swatch-cell">
+              <label class="swatch" class:locked>
+                <input
+                  type="radio"
+                  name="decoration"
+                  value={item.key}
+                  bind:group={chosen}
+                  disabled={locked}
+                />
+                <span><b class="deco-{item.key}">{item.name}</b></span>
+              </label>
+              {#if locked && (group.category === 'Supporter' || group.category === 'Shop')}
+                <a class="swatch-buy" href="/shop">{m.settings_decoration_buy()}</a>
+              {/if}
+            </div>
           {/each}
         </div>
         {#if group.category === 'Supporter' && group.items.some((d) => !unlocked.includes(d.key))}

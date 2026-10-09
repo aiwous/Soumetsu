@@ -129,6 +129,41 @@ export const adminSections: { name: string; pages: AdminPage[] }[] = [
         needs: Privilege.AdminManageSetting
       },
       {
+        href: '/admin/daily-challenge',
+        label: 'Daily challenge',
+        colour: 'c-teal',
+        icon: 'fa-calendar-day',
+        needs: Privilege.AdminManageBeatmap
+      },
+      {
+        href: '/admin/lazer',
+        label: 'Lazer',
+        colour: 'c-teal',
+        icon: 'fa-bolt',
+        needs: Privilege.AdminManageBeatmap
+      },
+      {
+        href: '/admin/commissions',
+        label: 'Commissions',
+        colour: 'c-green',
+        icon: 'fa-clipboard-check',
+        needs: Privilege.AdminManageSetting
+      },
+      {
+        href: '/admin/shop',
+        label: 'Shop',
+        colour: 'c-pink',
+        icon: 'fa-store',
+        needs: Privilege.AdminManageSetting
+      },
+      {
+        href: '/admin/casino',
+        label: 'Casino',
+        colour: 'c-yellow',
+        icon: 'fa-dice',
+        needs: Privilege.AdminManageSetting
+      },
+      {
         href: '/admin/clans',
         label: 'Clans',
         colour: 'c-purple',

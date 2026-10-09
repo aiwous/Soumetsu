@@ -1,0 +1,64 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "shop_title": "Bolt",
+  "shop_intro": "Költsd el az érméid. Rangsorolt mapokon kapsz érmét a patcherrel (100 combónként 1-et, Relaxon és Autopiloton 200-anként), és a megbízásokért.",
+  "shop_balance": [
+    {
+      "declarations": ["input count", "local n = count: plural"],
+      "selectors": ["n"],
+      "match": {
+        "n=one": "{coins} érme",
+        "n=other": "{coins} érme"
+      }
+    }
+  ],
+  "shop_section_decorations": "Díszek",
+  "shop_section_spotlight": "Reflektorfényben",
+  "shop_section_supporter": "E havi támogatói válogatás",
+  "shop_section_account": "Fiók",
+  "shop_item_username_change": "Névváltás",
+  "shop_item_username_change_desc": "Egyszer megváltoztathatod a neved",
+  "shop_item_custom_badge": "Egyedi jelvény",
+  "shop_item_custom_badge_desc": "Egyedi profiljelvényt old fel",
+  "shop_item_score_wipe": "Pontszámtörlés",
+  "shop_item_score_wipe_desc": "Törli a pontszámaidat és statisztikáidat egy módban és változatban",
+  "shop_buy": "Vétel {price} érméért",
+  "shop_owned": "Megvan",
+  "shop_leaves": [
+    {
+      "declarations": ["input count", "local n = count: plural"],
+      "selectors": ["n"],
+      "match": {
+        "n=one": "{count} nap múlva eltűnik",
+        "n=other": "{count} nap múlva eltűnik"
+      }
+    }
+  ],
+  "shop_included_supporter": "A támogatói csomag része",
+  "shop_confirm": [
+    {
+      "declarations": ["input count", "local n = count: plural"],
+      "selectors": ["n"],
+      "match": {
+        "n=one": "Megveszed ezt: {name}, {price} érméért?",
+        "n=other": "Megveszed ezt: {name}, {price} érméért?"
+      }
+    }
+  ],
+  "shop_bought": "Megvetted: {name}.",
+  "shop_username_new": "Új név",
+  "shop_username_hint": "2-15 karakter: betűk, számok, szóköz, _ [ ] -",
+  "shop_wipe_mode": "Mód",
+  "shop_wipe_variant": "Változat",
+  "shop_wipe_all": "Mind",
+  "shop_wipe_warning": "Ez törli a pontszámaidat, és nem lehet visszavonni.",
+  "shop_wipe_confirm": "Értem, hogy ezt nem lehet visszavonni",
+  "shop_purchases_title": "Vásárlásaid",
+  "shop_purchases_empty": "Még nem vettél semmit.",
+  "shop_err_insufficient": "Nincs elég érméd.",
+  "shop_err_unavailable": "Ez nincs eladásra.",
+  "shop_err_owned": "Ez már megvan.",
+  "shop_err_username_taken": "Ez a név foglalt.",
+  "shop_err_username_invalid": "Ez a név nem engedélyezett.",
+  "shop_err_too_fast": "Lassabban, próbáld újra pár másodperc múlva."
+}

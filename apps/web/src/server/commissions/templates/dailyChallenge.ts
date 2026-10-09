@@ -1,0 +1,65 @@
+import type { PlayerContext } from '../context';
+import type { DayScore } from '../scores';
+import { once, template, type Template } from './types';
+
+// Placements only settle once the challenge has ended and its day is finalised.
+async function placed(ctx: PlayerContext, atLeast: number) {
+  const row = await ctx.daily();
+  if (!row?.finalised) return 0;
+  return row.placement >= atLeast || row.stablePlacement >= atLeast ? 1 : 0;
+}
+
+async function onDaily(ctx: PlayerContext, predicate: (score: DayScore) => boolean = () => true) {
+  const row = await ctx.daily();
+  if (!row) return 0;
+  return row.scores.some((s) => s.passed && predicate(s)) ? 1 : 0;
+}
+
+const daily = (key: string, tier: Template['tier'], check: Template['check']) =>
+  template({
+    key,
+    family: 'daily',
+    tier,
+    roll: once,
+    target: () => 1,
+    check,
+    link: () => '/daily-challenge'
+  });
+
+export const dailyChallenge: Template[] = [
+  daily('daily_play', 'easy', (ctx) => onDaily(ctx)),
+  daily('daily_top50', 'medium', (ctx) => placed(ctx, 1)),
+  daily('daily_top10', 'hard', (ctx) => placed(ctx, 2)),
+  daily('daily_s', 'medium', (ctx) => onDaily(ctx, (s) => s.grade.startsWith('S'))),
+  {
+    ...daily(
+      'daily_both',
+      'hard',
+      async (ctx) =>
+        (await onDaily(ctx, (s) => s.source === 'stable')) &&
+        (await onDaily(ctx, (s) => s.source === 'lazer'))
+    ),
+    lazer: () => true
+  },
+  daily('daily_beat', 'medium', async (ctx) => {
+    const row = await ctx.daily();
+    if (!row) return 0;
+    // Stable and lazer scores are on different scales, so only compare like with like.
+    const plays = row.scores
+      .filter((s) => s.passed)
+      .sort((a, b) => a.at.getTime() - b.at.getTime());
+    return plays.some((play, i) =>
+      plays
+        .slice(0, i)
+        .some(
+          (earlier) =>
+            earlier.source === play.source &&
+            earlier.variant === play.variant &&
+            play.score > earlier.score
+        )
+    )
+      ? 1
+      : 0;
+  }),
+  daily('daily_no_miss', 'medium', (ctx) => onDaily(ctx, (s) => s.misses === 0))
+];

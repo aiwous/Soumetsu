@@ -1,21 +1,29 @@
 <script lang="ts">
   import { CountUp } from '@soumetsu/ui';
+  import type { DailyStats as Daily } from '$lib/api/dailyChallenge';
   import type { UserStats } from '$lib/api/users';
   import { number } from '$lib/format';
   import { level } from '$lib/level';
   import { m } from '$lib/paraglide/messages';
+  import type { Streaks } from '$lib/api/commissions';
+  import CommissionStats from './CommissionStats.svelte';
+  import DailyStats from './DailyStats.svelte';
   import PeakCard from './PeakCard.svelte';
 
   let {
     stats,
     country,
     peakRank,
-    history
+    history,
+    daily,
+    commissions
   }: {
     stats: UserStats;
     country: string;
     peakRank: { rank: number; time: number } | null;
     history: { time: number; value: number }[];
+    daily: Daily | null;
+    commissions: Streaks | null;
   } = $props();
 
   const value = $derived(level(stats.total_score));
@@ -81,3 +89,11 @@
     <dd>{number(stats.total_hits)}</dd>
   </div>
 </dl>
+
+{#if daily}
+  <DailyStats {daily} />
+{/if}
+
+{#if commissions}
+  <CommissionStats stats={commissions} />
+{/if}

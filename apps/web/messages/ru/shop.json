@@ -1,0 +1,70 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "shop_title": "Магазин",
+  "shop_intro": "Трать монеты. Их дают за игру на рейтинговых картах через патчер (1 монета за каждые 100 комбо, на Relax и Autopilot за 200) и за задания.",
+  "shop_balance": [
+    {
+      "declarations": ["input count", "local n = count: plural"],
+      "selectors": ["n"],
+      "match": {
+        "n=one": "{coins} монета",
+        "n=few": "{coins} монеты",
+        "n=many": "{coins} монет",
+        "n=other": "{coins} монеты"
+      }
+    }
+  ],
+  "shop_section_decorations": "Украшения",
+  "shop_section_spotlight": "В центре внимания",
+  "shop_section_supporter": "Стили саппортеров: подборка месяца",
+  "shop_section_account": "Аккаунт",
+  "shop_item_username_change": "Смена ника",
+  "shop_item_username_change_desc": "Один раз сменить ник",
+  "shop_item_custom_badge": "Свой бейдж",
+  "shop_item_custom_badge_desc": "Открывает свой бейдж в профиле",
+  "shop_item_score_wipe": "Сброс скоров",
+  "shop_item_score_wipe_desc": "Сбрасывает скоры и статистику для режима и варианта",
+  "shop_buy": "Купить за {price}",
+  "shop_owned": "Есть",
+  "shop_leaves": [
+    {
+      "declarations": ["input count", "local n = count: plural"],
+      "selectors": ["n"],
+      "match": {
+        "n=one": "Уйдёт через {count} день",
+        "n=few": "Уйдёт через {count} дня",
+        "n=many": "Уйдёт через {count} дней",
+        "n=other": "Уйдёт через {count} дня"
+      }
+    }
+  ],
+  "shop_included_supporter": "Бесплатно с саппортером",
+  "shop_confirm": [
+    {
+      "declarations": ["input count", "local n = count: plural"],
+      "selectors": ["n"],
+      "match": {
+        "n=one": "Купить {name} за {price} монету?",
+        "n=few": "Купить {name} за {price} монеты?",
+        "n=many": "Купить {name} за {price} монет?",
+        "n=other": "Купить {name} за {price} монеты?"
+      }
+    }
+  ],
+  "shop_bought": "Куплено: {name}.",
+  "shop_username_new": "Новый ник",
+  "shop_username_hint": "2-15 символов: латиница, цифры, пробел, _ [ ] -",
+  "shop_wipe_mode": "Режим",
+  "shop_wipe_variant": "Вариант",
+  "shop_wipe_all": "Все",
+  "shop_wipe_warning": "Это удалит твои скоры, назад не вернуть.",
+  "shop_wipe_confirm": "Понимаю, что это не вернуть",
+  "shop_purchases_title": "Твои покупки",
+  "shop_purchases_empty": "Пока ничего не куплено.",
+  "shop_err_insufficient": "Не хватает монет.",
+  "shop_err_unavailable": "Этого нет в продаже.",
+  "shop_err_owned": "Это у тебя уже есть.",
+  "shop_err_username_taken": "Этот ник занят.",
+  "shop_err_username_invalid": "Такой ник не подойдёт.",
+  "shop_err_too_fast": "Не так быстро, попробуй через пару секунд."
+}

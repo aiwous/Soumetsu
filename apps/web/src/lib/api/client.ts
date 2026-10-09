@@ -26,7 +26,7 @@ export function apiUrl(path: string, params?: Params) {
   return url;
 }
 
-function failureName(status: number, json: unknown) {
+export function failureName(status: number, json: unknown) {
   if (json && typeof json === 'object') {
     const body = json as { data?: unknown; detail?: unknown };
     if (typeof body.data === 'string') return body.data;
@@ -84,7 +84,7 @@ export const siteApi = {
     request<T>('GET', siteUrl(path, params), { signal }),
   post: <T = null>(path: string, body?: unknown) => request<T>('POST', siteUrl(path), { body }),
   put: <T = null>(path: string, body?: unknown) => request<T>('PUT', siteUrl(path), { body }),
-  delete: <T = null>(path: string) => request<T>('DELETE', siteUrl(path))
+  delete: <T = null>(path: string, body?: unknown) => request<T>('DELETE', siteUrl(path), { body })
 };
 
 export const api = {

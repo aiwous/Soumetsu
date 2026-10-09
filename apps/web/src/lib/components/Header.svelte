@@ -6,6 +6,10 @@
   import { session } from '$lib/auth/session.svelte';
   import { flash } from '$lib/flash.svelte';
   import { inbox } from '$lib/inbox.svelte';
+  import { commissions } from '$lib/api/commissions';
+  import { coins } from '$lib/coins.svelte';
+  import { query } from '$lib/api/query.svelte';
+  import { number } from '$lib/format';
   import { m } from '$lib/paraglide/messages';
   import Avatar from './Avatar.svelte';
   import PlayerSearch from './PlayerSearch.svelte';
@@ -15,6 +19,7 @@
     icon: string;
     text: string;
     brand?: boolean;
+    badge?: string;
   }
 
   interface Menu {
@@ -27,6 +32,16 @@
 
   const user = $derived(session.user);
   const path = $derived(page.url.pathname);
+
+  const commissionsQuery = query((signal) =>
+    session.user ? commissions(signal) : Promise.resolve(null)
+  );
+  const tasks = $derived(
+    commissionsQuery.state.status === 'ready' && commissionsQuery.state.data
+      ? commissionsQuery.state.data.day.tasks
+      : null
+  );
+  const done = $derived(tasks ? tasks.filter((t) => t.completed).length : null);
 
   // Messages sent from the site arrive over the stream. The check now and then while the tab is in view
   // covers in-game ones, and mobile browsers freeze timers and streams in the background, so coming back
@@ -50,12 +65,60 @@
     };
   });
 
+  $effect(() => {
+    if (user) coins.refresh().catch(() => {});
+    else coins.clear();
+  });
+
   const menus: Menu[] = $derived([
     {
-      label: m.common_header_clan(),
+      label: m.common_header_play(),
+      colour: 'c-red',
+      icon: 'fa-gamepad',
+      prefixes: ['/daily-challenge', '/commissions', '/shop', '/casino'],
+      items: [
+        {
+          href: '/daily-challenge',
+          icon: 'fa-calendar-day',
+          text: m.common_header_daily_challenge()
+        },
+        ...(user
+          ? [
+              {
+                href: '/commissions',
+                icon: 'fa-clipboard-check',
+                text: m.common_header_commissions(),
+                badge:
+                  done !== null && tasks
+                    ? m.commissions_header_badge({ done, total: tasks.length })
+                    : undefined
+              },
+              { href: '/shop', icon: 'fa-store', text: m.common_header_shop() },
+              { href: '/casino', icon: 'fa-dice', text: m.common_header_casino() }
+            ]
+          : [])
+      ]
+    },
+    {
+      label: m.common_nav_beatmaps(),
+      colour: 'c-lblue',
+      icon: 'fa-music',
+      prefixes: ['/beatmap_listing', '/beatmaps/', '/rank-request', '/upload-requests'],
+      items: [
+        { href: '/beatmap_listing', icon: 'fa-list', text: m.common_header_beatmap_listing() },
+        { href: '/rank-request', icon: 'fa-paper-plane', text: m.common_header_request_beatmap() },
+        {
+          href: '/upload-requests',
+          icon: 'fa-circle-play',
+          text: m.common_header_upload_requests()
+        }
+      ]
+    },
+    {
+      label: m.common_header_community(),
       colour: 'c-purple',
-      icon: 'fa-shield-halved',
-      prefixes: ['/clanboard', '/c/', '/clan/', '/clans/'],
+      icon: 'fa-users',
+      prefixes: ['/clanboard', '/c/', '/clan/', '/clans/', '/team'],
       items: [
         ...(user
           ? [
@@ -71,36 +134,21 @@
               }
             ]
           : []),
-        { href: '/clanboard', icon: 'fa-trophy', text: m.common_header_clan_leaderboard() }
+        { href: '/clanboard', icon: 'fa-shield-halved', text: m.common_header_clans() },
+        { href: '/team', icon: 'fa-user-group', text: m.common_header_team() },
+        { href: '/discord', icon: 'fa-discord', text: 'Discord', brand: true }
       ]
     },
     {
-      label: m.common_header_support(),
+      label: m.common_header_help(),
       colour: 'c-green',
       icon: 'fa-life-ring',
-      prefixes: ['/doc', '/connect', '/patcher', '/upload-requests', '/team'],
+      prefixes: ['/doc', '/connect', '/patcher'],
       items: [
         { href: '/doc/rules', icon: 'fa-scale-balanced', text: m.common_header_rules() },
         { href: '/doc', icon: 'fa-book', text: m.common_nav_documentation() },
         { href: '/connect', icon: 'fa-plug', text: m.common_header_connection_guide() },
-        { href: '/patcher', icon: 'fa-screwdriver-wrench', text: m.common_header_patcher() },
-        {
-          href: '/upload-requests',
-          icon: 'fa-circle-play',
-          text: m.common_header_upload_requests()
-        },
-        { href: '/discord', icon: 'fa-discord', text: 'Discord', brand: true },
-        { href: '/team', icon: 'fa-users', text: m.common_header_team() }
-      ]
-    },
-    {
-      label: m.common_nav_beatmaps(),
-      colour: 'c-lblue',
-      icon: 'fa-music',
-      prefixes: ['/beatmap_listing', '/beatmaps/', '/rank-request'],
-      items: [
-        { href: '/beatmap_listing', icon: 'fa-list', text: m.common_header_beatmap_listing() },
-        { href: '/rank-request', icon: 'fa-paper-plane', text: m.common_header_request_beatmap() }
+        { href: '/patcher', icon: 'fa-screwdriver-wrench', text: m.common_header_patcher() }
       ]
     }
   ]);
@@ -167,6 +215,7 @@
             {#each menu.items as item (item.href)}
               <a href={item.href}>
                 <i class="{item.brand ? 'fa-brands' : 'fa-solid'} {item.icon}"></i>{item.text}
+                {#if item.badge}<span class="me-badge">{item.badge}</span>{/if}
               </a>
             {/each}
           </div>
@@ -197,6 +246,14 @@
             <a href="/users/{user.id}"
               ><i class="fa-solid fa-user"></i>{m.common_header_profile()}</a
             >
+            {#if coins.balance !== null}
+              <a class="me-coins" href="/shop">
+                <i class="fa-solid fa-coins"></i>{m.casino_balance({
+                  count: coins.balance,
+                  coins: number(coins.balance)
+                })}
+              </a>
+            {/if}
             <a href="/friends"><i class="fa-solid fa-user-group"></i>{m.common_header_friends()}</a>
             <a href="/settings"><i class="fa-solid fa-gear"></i>{m.common_header_settings()}</a>
             {#if isStaff(user.privileges)}

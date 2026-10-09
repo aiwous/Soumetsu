@@ -69,6 +69,7 @@
   "settings_decoration_group_default": "Обычные",
   "settings_decoration_group_supporter": "Для саппортеров",
   "settings_decoration_group_staff": "Для стаффа",
+  "settings_decoration_group_shop": "Магазин",
   "settings_decoration_unlock_link": "Стань саппортером",
   "settings_decoration_unlock_end": ", чтобы открыть эти оформления.",
   "settings_discord_state_error": "Что-то пошло не так. Попробуй привязать Discord ещё раз.",
@@ -149,5 +150,6 @@
   "settings_banner_zoom": "Масштаб",
   "settings_banner_wide": "Компьютер",
   "settings_banner_phone": "Телефон",
-  "settings_banner_reset": "Сбросить"
+  "settings_banner_reset": "Сбросить",
+  "settings_decoration_buy": "Получить в магазине"
 }

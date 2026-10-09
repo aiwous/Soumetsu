@@ -43,6 +43,7 @@ const NEEDS: Record<string, number> = {
   restrict: Privilege.AdminManageUsers,
   freeze: Privilege.AdminManageUsers,
   rename: Privilege.AdminManageUsers,
+  'forget-name': Privilege.AdminManageUsers,
   password: Privilege.AdminManageUsers,
   supporter: Privilege.AdminManageUsers,
   'remove-supporter': Privilege.AdminManageUsers,
@@ -107,6 +108,13 @@ export const POST = handle(async ({ request, params }) => {
       if (error) throw new Failure(400, error);
       break;
     }
+    case 'forget-name': {
+      const username = body.username ?? '';
+      const { count } = await db.user_name_history.deleteMany({ where: { user_id: id, username } });
+      if (count === 0) throw new Failure(404, 'That name is not in their history.');
+      await rapLog(caller.id, `removed the past username '${username}' of ${who}`);
+      break;
+    }
     case 'password': {
       const password = body.password ?? '';
       if (await passwordProblem(password)) throw new Failure(400, 'auth.validation_error');
@@ -155,7 +163,7 @@ export const POST = handle(async ({ request, params }) => {
     case 'wipe': {
       const scope = users.parseScope(body);
       await users.wipeStats(id, scope);
-      const everything = scope.modes.length === 4 && scope.types.length === 3;
+      const everything = scope.modes.length === 4 && scope.types.length === 4;
       await rapLog(
         caller.id,
         everything

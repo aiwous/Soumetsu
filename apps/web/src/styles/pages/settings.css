@@ -185,7 +185,9 @@
 }
 
 .switch {
+  position: relative;
   display: flex;
+  width: fit-content;
   align-items: center;
   gap: 12px;
   font-size: 13px;
@@ -530,6 +532,17 @@
 
 .supporter-only a {
   color: var(--link);
+}
+
+.swatch-cell {
+  display: grid;
+  gap: 4px;
+}
+
+.swatch-buy {
+  color: var(--link);
+  font-size: 12px;
+  text-align: center;
 }
 
 .swatch.locked {

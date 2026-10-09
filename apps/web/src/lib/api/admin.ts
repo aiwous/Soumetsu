@@ -1,3 +1,4 @@
+import type { Game } from './casino';
 import type { GradeName } from '$lib/grades';
 import type { Mod } from '$lib/mods';
 import { siteApi } from './site';
@@ -85,6 +86,7 @@ export interface AdminUserDetail {
     previousNames: string[];
     badges: number[];
     clan: { id: number; name: string; tag: string } | null;
+    owned: string[];
   };
   groups: { privileges: number; name: string }[];
   badgeChoices: { id: number; name: string }[];
@@ -398,3 +400,138 @@ export const playerReports = (all: boolean, page: number, signal?: AbortSignal) 
   );
 
 export const resolvePlayerReport = (id: number) => siteApi.post(`/admin/reports/${id}`);
+
+export interface DailyChallenge {
+  date: string;
+  beatmapId: number;
+  song: string | null;
+  // UTC, as 'YYYY-MM-DDTHH:mm'. The challenge runs for 24 hours from it.
+  startsAt: string;
+  freemod: boolean;
+}
+
+export interface PoolEntry {
+  beatmapId: number;
+  stars: number;
+  song: string | null;
+}
+
+export interface LazerSettings {
+  rankedPlayElo: boolean;
+}
+
+export const lazerSettings = (signal?: AbortSignal) =>
+  siteApi.get<LazerSettings>('/admin/lazer/settings', undefined, signal);
+
+export const setLazerSettings = (settings: LazerSettings) =>
+  siteApi.put('/admin/lazer/settings', settings);
+
+export interface CommissionSettings {
+  tasksPerDay: number;
+  minDayPoints: number;
+  thresholds: { points: number; coins: number }[];
+  tierPoints: { easy: number; medium: number; hard: number };
+  weights: Record<string, number>;
+  artists: string[];
+  famousMaps: { beatmapId: number; name: string }[];
+  lazerTasks: boolean;
+}
+
+export const commissionSettings = (signal?: AbortSignal) =>
+  siteApi.get<CommissionSettings>('/admin/commissions/settings', undefined, signal);
+
+export const setCommissionSettings = (settings: CommissionSettings) =>
+  siteApi.put('/admin/commissions/settings', settings);
+
+export interface CommissionTemplate {
+  key: string;
+  family: string;
+  tier: 'easy' | 'medium' | 'hard';
+  example: Record<string, string | number | boolean> | null;
+}
+
+export const commissionTemplates = (signal?: AbortSignal) =>
+  siteApi.get<CommissionTemplate[]>('/admin/commissions/templates', undefined, signal);
+
+export const dailyChallenges = (signal?: AbortSignal) =>
+  siteApi.get<DailyChallenge[]>('/admin/daily-challenge', undefined, signal);
+
+export const setDailyChallenge = (startsAt: string, beatmapId: number, freemod: boolean) =>
+  siteApi.put('/admin/daily-challenge', { starts_at: startsAt, beatmap_id: beatmapId, freemod });
+
+export const removeDailyChallenge = (date: string) =>
+  siteApi.delete(`/admin/daily-challenge?date=${date}`);
+
+export const poolEntries = (ruleset: number, signal?: AbortSignal) =>
+  siteApi.get<PoolEntry[]>('/admin/lazer/pool', { ruleset }, signal);
+
+export const addPoolEntry = (ruleset: number, beatmapId: number, stars?: number) =>
+  siteApi.put('/admin/lazer/pool', { ruleset, beatmap_id: beatmapId, stars });
+
+export const removePoolEntry = (ruleset: number, beatmapId: number) =>
+  siteApi.delete(`/admin/lazer/pool?ruleset=${ruleset}&beatmap=${beatmapId}`);
+
+export interface ShopItemRow {
+  id: number;
+  type: string;
+  item_key: string | null;
+  name: string;
+  price: number;
+  enabled: boolean;
+  sort_order: number;
+}
+
+export interface ShopSettings {
+  supporterPrice: number;
+  spotlight: { key: string; from: string; until: string }[];
+  supporterPins: Record<string, string[]>;
+  picks: { month: string; keys: string[] };
+}
+
+export interface ShopPurchaseRow {
+  id: number;
+  user_id: number;
+  username: string;
+  item: { type: string; key: string | null; name: string };
+  price_paid: number;
+  bought_at: string;
+}
+
+export const shopItems = (signal?: AbortSignal) =>
+  siteApi.get<ShopItemRow[]>('/admin/shop/items', undefined, signal);
+
+export const setShopItem = (item: Pick<ShopItemRow, 'id' | 'price' | 'enabled' | 'sort_order'>) =>
+  siteApi.put('/admin/shop/items', item);
+
+export const shopSettings = (signal?: AbortSignal) =>
+  siteApi.get<ShopSettings>('/admin/shop/settings', undefined, signal);
+
+export const setShopSettings = (settings: Omit<ShopSettings, 'picks'>) =>
+  siteApi.put<ShopSettings>('/admin/shop/settings', settings);
+
+export const shopPurchases = (page: number, signal?: AbortSignal) =>
+  siteApi.get<{ total: number; purchases: ShopPurchaseRow[] }>(
+    '/admin/shop/purchases',
+    { page },
+    signal
+  );
+
+export interface CasinoConfigRow {
+  game: Game;
+  minBet: number;
+  maxBet: number;
+  enabled: boolean;
+  odds: Record<string, unknown> | null;
+}
+
+export const casinoConfig = (signal?: AbortSignal) =>
+  siteApi.get<CasinoConfigRow[]>('/admin/casino/config', undefined, signal);
+
+export const saveCasinoConfig = (row: CasinoConfigRow) =>
+  siteApi.put<CasinoConfigRow[]>('/admin/casino/config', row);
+
+export const grantDecoration = (userId: number, key: string) =>
+  siteApi.post(`/admin/users/${userId}/decorations`, { key });
+
+export const revokeDecoration = (userId: number, key: string) =>
+  siteApi.delete(`/admin/users/${userId}/decorations`, { key });

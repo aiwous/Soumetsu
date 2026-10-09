@@ -51,6 +51,22 @@
 .deco-beer,
 .deco-vaporwave,
 .deco-sakura,
+.deco-candy,
+.deco-midnight,
+.deco-neon,
+.deco-mint,
+.deco-lava,
+.deco-foil,
+.deco-toxic,
+.deco-royal,
+.deco-coral,
+.deco-storm,
+.deco-cash,
+.deco-copper,
+.deco-platinum,
+.deco-diamond,
+.deco-bullion,
+.deco-jackpot,
 .deco-staff-claude {
   background-clip: text;
   -webkit-background-clip: text;
@@ -344,5 +360,106 @@
   50% {
     color: #a0a0a0;
     text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+  }
+}
+
+.deco-candy {
+  background-image: linear-gradient(90deg, #ff9ad5, #ffd1ec, #9ad8ff, #ff9ad5);
+  background-size: 300% 100%;
+  animation: deco-aurora-shift 7s ease infinite;
+}
+
+.deco-midnight {
+  background-image: linear-gradient(90deg, #0b1a4a, #3a4fb5, #8fa8ff, #3a4fb5, #0b1a4a);
+  background-size: 300% 100%;
+  animation: deco-aurora-shift 11s ease infinite;
+}
+
+.deco-neon {
+  background-image: linear-gradient(90deg, #39ff14, #00ffa2, #eaff00, #39ff14);
+  background-size: 300% 100%;
+  animation: deco-aurora-shift 4s ease infinite;
+}
+
+.deco-mint {
+  background-image: linear-gradient(90deg, #7bf1c4, #e6fff5, #3fd6a0, #7bf1c4);
+  background-size: 300% 100%;
+  animation: deco-aurora-shift 9s ease infinite;
+}
+
+.deco-lava {
+  background-image: linear-gradient(90deg, #7a0c00, #ff3d00, #ffb300, #ff3d00, #7a0c00);
+  background-size: 300% 100%;
+  animation: deco-aurora-shift 5s ease infinite;
+}
+
+.deco-foil {
+  background-image: linear-gradient(90deg, #8a6a12, #f5d76e, #fffbe0, #d4a017, #8a6a12);
+  background-size: 300% 100%;
+  animation: deco-aurora-shift 4.5s ease infinite;
+}
+
+.deco-toxic {
+  background-image: linear-gradient(90deg, #39ff14, #ccff00, #7cfc00, #00ff9c, #39ff14);
+  background-size: 300% 100%;
+  filter: drop-shadow(0 0 4px rgba(57, 255, 20, 0.45));
+  animation: deco-aurora-shift 5s ease infinite;
+}
+
+.deco-royal {
+  background-image: linear-gradient(90deg, #4b1d8f, #8e44ff, #ffd24d, #8e44ff, #4b1d8f);
+  background-size: 300% 100%;
+  animation: deco-aurora-shift 8s ease infinite;
+}
+
+.deco-coral {
+  background-image: linear-gradient(90deg, #ff7e6b, #ffb199, #3fd0c9, #ff7e6b);
+  background-size: 300% 100%;
+  animation: deco-aurora-shift 9s ease infinite;
+}
+
+.deco-storm {
+  background-image: linear-gradient(90deg, #2c3e50, #6c7a89, #dfe9f3, #6c7a89, #2c3e50);
+  background-size: 300% 100%;
+  animation: deco-aurora-shift 6s ease infinite;
+}
+
+.deco-cash {
+  background-image: linear-gradient(90deg, #9ad27f, #2e7d32, #9ad27f);
+  background-size: 300% 100%;
+  animation: deco-aurora-shift 10s ease infinite;
+}
+
+.deco-copper {
+  background-image: linear-gradient(90deg, #d08a4e, #7a3e12);
+}
+
+.deco-platinum {
+  background-image: linear-gradient(90deg, #eef1f5, #9aa3b0, #f7f9fb);
+}
+
+.deco-diamond {
+  background-image: linear-gradient(90deg, #e6f7ff, #6fc8ff, #ffffff, #6fc8ff);
+  background-size: 300% 100%;
+  animation: deco-aurora-shift 5s ease infinite;
+}
+
+.deco-bullion {
+  background-image: linear-gradient(90deg, #ffe28a, #b8860b, #fff2b3, #b8860b);
+  background-size: 300% 100%;
+  animation: deco-aurora-shift 10s ease infinite;
+}
+
+.deco-jackpot {
+  background-image: repeating-linear-gradient(90deg, #ff3b3b 0 12px, #ffd43b 12px 24px);
+  background-size: 48px 100%;
+  animation: deco-jackpot-roll 3s linear infinite;
+}
+@keyframes deco-jackpot-roll {
+  0% {
+    background-position: 0 50%;
+  }
+  100% {
+    background-position: 48px 50%;
   }
 }

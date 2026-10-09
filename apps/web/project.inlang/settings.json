@@ -15,7 +15,14 @@
       "./messages/{locale}/clans.json",
       "./messages/{locale}/support.json",
       "./messages/{locale}/messages.json",
-      "./messages/{locale}/uploads.json"
+      "./messages/{locale}/uploads.json",
+      "./messages/{locale}/ranked.json",
+      "./messages/{locale}/rooms.json",
+      "./messages/{locale}/multiplayer.json",
+      "./messages/{locale}/scores.json",
+      "./messages/{locale}/commissions.json",
+      "./messages/{locale}/shop.json",
+      "./messages/{locale}/casino.json"
     ]
   }
 }

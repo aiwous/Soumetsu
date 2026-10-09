@@ -1,0 +1,619 @@
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import type { PokerOdds } from './games/poker';
+
+let config: object | null = null;
+let user: { coins: number; privileges: bigint } | null = null;
+let updates: unknown[][] = [];
+let history: object[] = [];
+let keys: Record<string, string> = {};
+let locks: Record<string, string> = {};
+let waiters: (() => void)[] = [];
+let failExecute = false;
+let failCommit = false;
+let setArgs: (string | number)[][] = [];
+let swaps: [string, string][] = [];
+let limitHits = 0;
+// Lets a test change Redis under a step, or make a swap land and still throw.
+let beforeGetdel: () => void = () => {};
+let throwAfterSwap = false;
+let throwAfterSet = false;
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+// Updates and history only become visible when the transaction commits, like the real thing.
+function makeTx(pending: { updates: unknown[][]; history: object[] }) {
+  return {
+    $queryRaw: async () => (user ? [{ ...user }] : []),
+    $executeRaw: async (_sql: TemplateStringsArray, ...values: unknown[]) => {
+      if (failExecute) throw new Error('update failed');
+      pending.updates.push(values);
+      return 1;
+    },
+    casino_game_history: {
+      create: async ({ data }: { data: object }) => {
+        pending.history.push(data);
+        return data;
+      }
+    }
+  };
+}
+
+mock.module('$server/db', () => ({
+  db: {
+    casino_game_config: { findUnique: async () => config },
+    $transaction: async <T>(fn: (client: ReturnType<typeof makeTx>) => Promise<T>) => {
+      const pending = { updates: [] as unknown[][], history: [] as object[] };
+      const result = await fn(makeTx(pending));
+      if (failCommit) throw new Error('commit failed');
+      updates.push(...pending.updates);
+      history.push(...pending.history);
+      return result;
+    }
+  }
+}));
+
+// Each call yields first, so two unlocked steps would interleave. The lock key blocks rather than
+// failing, which turns the real withLock into a queue.
+mock.module('$server/redis', () => ({
+  redis: {
+    incr: async () => ++limitHits,
+    get: async (key: string) => {
+      await tick();
+      return keys[key] ?? null;
+    },
+    getdel: async (key: string) => {
+      await tick();
+      beforeGetdel();
+      const value = keys[key] ?? null;
+      delete keys[key];
+      return value;
+    },
+    del: async (key: string) => {
+      const had = key in keys;
+      delete keys[key];
+      return had ? 1 : 0;
+    },
+    set: async (key: string, value: string, ...args: (string | number)[]) => {
+      if (key.startsWith('casino:lock:')) {
+        while (key in locks) await new Promise<void>((resolve) => waiters.push(resolve));
+        locks[key] = value;
+        return 'OK';
+      }
+      if (key.startsWith('casino:limit:')) return 'OK';
+      setArgs.push(args);
+      await tick();
+      if (args.includes('NX') && key in keys) return null;
+      if (args.includes('XX') && !(key in keys)) return null;
+      keys[key] = value;
+      if (throwAfterSet) {
+        throwAfterSet = false;
+        throw new Error('connection lost');
+      }
+      return 'OK';
+    },
+    eval: async (_script: string, _n: number, key: string, from: string, to?: string) => {
+      if (to !== undefined) {
+        await tick();
+        if (keys[key] !== from) return 0;
+        keys[key] = to;
+        swaps.push([from, to]);
+        if (throwAfterSwap) {
+          throwAfterSwap = false;
+          throw new Error('connection lost');
+        }
+        return 1;
+      }
+      if (!key.startsWith('casino:lock:')) {
+        await tick();
+        if (keys[key] !== from) return 0;
+        delete keys[key];
+        return 1;
+      }
+      if (locks[key] !== from) return 0;
+      delete locks[key];
+      const woken = waiters;
+      waiters = [];
+      for (const wake of woken) wake();
+      return 1;
+    }
+  }
+}));
+
+const { clearConfigCache } = await import('./config');
+const { begin, pending, stateKey, step } = await import('./session');
+type StepOutcome = import('./session').StepOutcome<Game, View, { won: boolean }>;
+
+interface Game {
+  bet: number;
+  n: number;
+  top: number;
+}
+type View = { bet: number; n: number };
+
+const payouts = {
+  royal_flush: 500,
+  straight_flush: 35,
+  four_of_a_kind: 15,
+  full_house: 6,
+  flush: 4,
+  straight: 3,
+  three_of_a_kind: 2,
+  two_pair: 1.5,
+  jacks_or_better: 0.8
+};
+const KEY = 'casino:poker:1';
+
+const create = (odds: PokerOdds, bet: number): Game => ({
+  bet,
+  n: 0,
+  top: odds.payouts.royal_flush
+});
+const view = ({ bet, n }: Game): View => ({ bet, n });
+const store = (state: Game) => (keys[KEY] = JSON.stringify(state));
+const stored = () => JSON.parse(keys[KEY]) as Game;
+
+const advance = (state: Game): StepOutcome => {
+  const next = { ...state, n: state.n + 1 };
+  return { state: next, view: view(next) };
+};
+
+const cashOut =
+  (multiplier: number, base: number, extra: Partial<StepOutcome> = {}) =>
+  (state: Game): StepOutcome => ({
+    settle: { multiplier, base, result: { won: base > 0 } },
+    view: view(state),
+    ...extra
+  });
+
+beforeEach(() => {
+  clearConfigCache();
+  config = { min_bet: 10, max_bet: 1000, enabled: true, config_json: { payouts } };
+  user = { coins: 1000, privileges: 1n };
+  updates = [];
+  history = [];
+  keys = {};
+  locks = {};
+  waiters = [];
+  failExecute = false;
+  failCommit = false;
+  setArgs = [];
+  swaps = [];
+  limitHits = 0;
+  beforeGetdel = () => {};
+  throwAfterSwap = false;
+  throwAfterSet = false;
+});
+
+test('stateKey keeps the poker key', () => {
+  expect(stateKey('poker', 1)).toBe(KEY);
+  expect(stateKey('chicken_road', 7)).toBe('casino:chicken_road:7');
+});
+
+describe('begin', () => {
+  test('takes the bet and stores the state without expiry', async () => {
+    const begun = await begin(1, 'poker', 100, create, view);
+    expect(begun).toEqual({ view: { bet: 100, n: 0 }, balance: 900 });
+    expect(updates).toEqual([[100, 1]]);
+    expect(stored()).toEqual({ bet: 100, n: 0, top: 500 });
+    expect(setArgs).toEqual([['NX']]);
+    expect(history).toEqual([]);
+  });
+
+  test('a running game is a 409 and takes nothing', async () => {
+    store({ bet: 50, n: 3, top: 500 });
+    const before = keys[KEY];
+    await expect(begin(1, 'poker', 100, create, view)).rejects.toMatchObject({
+      status: 409,
+      code: 'casino.game_pending'
+    });
+    expect(updates).toEqual([]);
+    expect(keys[KEY]).toBe(before);
+  });
+
+  test('a running game is a 409 even without the coins for another', async () => {
+    store({ bet: 50, n: 3, top: 500 });
+    user = { coins: 5, privileges: 1n };
+    await expect(begin(1, 'poker', 100, create, view)).rejects.toMatchObject({ status: 409 });
+  });
+
+  test('passes its own codes', async () => {
+    store({ bet: 50, n: 3, top: 500 });
+    const codes = { pending: 'casino.hand_pending', missing: 'casino.no_hand' };
+    await expect(begin(1, 'poker', 100, create, view, undefined, { codes })).rejects.toMatchObject({
+      code: 'casino.hand_pending'
+    });
+  });
+
+  test('not enough coins is a 402 and removes the state', async () => {
+    user = { coins: 50, privileges: 1n };
+    await expect(begin(1, 'poker', 100, create, view)).rejects.toMatchObject({
+      status: 402,
+      code: 'casino.insufficient_coins'
+    });
+    expect(updates).toEqual([]);
+    expect(keys[KEY]).toBeUndefined();
+  });
+
+  test('a failed deduction removes the state', async () => {
+    failExecute = true;
+    await expect(begin(1, 'poker', 100, create, view)).rejects.toThrow('update failed');
+    expect(keys[KEY]).toBeUndefined();
+  });
+
+  test('a claim that lands and then throws is removed', async () => {
+    throwAfterSet = true;
+    await expect(begin(1, 'poker', 100, create, view)).rejects.toThrow('connection lost');
+    expect(keys[KEY]).toBeUndefined();
+    expect(updates).toEqual([]);
+  });
+
+  test('a running game is left alone by the losing claim', async () => {
+    keys[KEY] = JSON.stringify({ bet: 50, n: 3, top: 500 });
+    const stored = keys[KEY];
+    await expect(begin(1, 'poker', 100, create, view)).rejects.toMatchObject({ status: 409 });
+    expect(keys[KEY]).toBe(stored);
+  });
+
+  test('a failed commit removes the state', async () => {
+    failCommit = true;
+    await expect(begin(1, 'poker', 100, create, view)).rejects.toThrow('commit failed');
+    expect(keys[KEY]).toBeUndefined();
+  });
+
+  test('a restricted player is a 403 and stores nothing', async () => {
+    user = { coins: 1000, privileges: 0n };
+    await expect(begin(1, 'poker', 100, create, view)).rejects.toMatchObject({ status: 403 });
+    expect(keys[KEY]).toBeUndefined();
+    expect(updates).toEqual([]);
+  });
+
+  test('a disabled game is a 403', async () => {
+    config = { min_bet: 10, max_bet: 1000, enabled: false, config_json: { payouts } };
+    await expect(begin(1, 'poker', 100, create, view)).rejects.toMatchObject({
+      status: 403,
+      code: 'casino.disabled'
+    });
+  });
+
+  test('a bad bet is a 400', async () => {
+    await expect(begin(1, 'poker', 5, create, view)).rejects.toMatchObject({ status: 400 });
+  });
+
+  test('a game over at the start takes and pays in one go and stores nothing', async () => {
+    user = { coins: 1000, privileges: 1n | 4n };
+    const natural = (_odds: PokerOdds, bet: number) => ({
+      settle: { multiplier: 2.2, base: 220, result: { won: true } },
+      view: { bet, n: 0 }
+    });
+    const begun = await begin(1, 'poker', 100, natural, view);
+    expect(begun).toEqual({
+      view: { bet: 100, n: 0 },
+      result: { won: true },
+      payout: 232,
+      multiplier: 2.2,
+      balance: 1132
+    });
+    expect(updates).toEqual([[100, 232, 1]]);
+    expect(history).toEqual([
+      {
+        user_id: 1,
+        game_type: 'poker',
+        bet_amount: 100,
+        multiplier: 2.2,
+        payout: 232,
+        result_data: { won: true }
+      }
+    ]);
+    expect(keys[KEY]).toBeUndefined();
+    expect(setArgs).toEqual([]);
+  });
+
+  test('a game over at the start is still a 409 while another runs', async () => {
+    store({ bet: 50, n: 3, top: 500 });
+    const before = keys[KEY];
+    const natural = (_odds: PokerOdds, bet: number) => ({
+      settle: { multiplier: 2, base: 200, result: { won: true } },
+      view: { bet, n: 0 }
+    });
+    await expect(begin(1, 'poker', 100, natural, view)).rejects.toMatchObject({ status: 409 });
+    expect(keys[KEY]).toBe(before);
+    expect(updates).toEqual([]);
+    expect(history).toEqual([]);
+  });
+
+  test('a game over at the start without the coins is a 402', async () => {
+    user = { coins: 50, privileges: 1n };
+    const natural = (_odds: PokerOdds, bet: number) => ({
+      settle: { multiplier: 2, base: 200, result: { won: true } },
+      view: { bet, n: 0 }
+    });
+    await expect(begin(1, 'poker', 100, natural, view)).rejects.toMatchObject({ status: 402 });
+    expect(updates).toEqual([]);
+    expect(history).toEqual([]);
+  });
+
+  test('parse runs before the limit and feeds create', async () => {
+    const reject = () => {
+      throw new Error('bad input');
+    };
+    await expect(
+      begin(1, 'poker', 100, create, view, undefined, { parse: reject })
+    ).rejects.toThrow('bad input');
+    expect(limitHits).toBe(0);
+
+    const begun = await begin(
+      1,
+      'poker',
+      100,
+      (odds: PokerOdds, bet: number, _rng, n: number) => ({ ...create(odds, bet), n }),
+      view,
+      undefined,
+      { parse: (odds: PokerOdds) => odds.payouts.straight_flush }
+    );
+    expect(begun.view).toEqual({ bet: 100, n: 35 });
+  });
+});
+
+describe('step', () => {
+  test('without a game is a 404', async () => {
+    await expect(step(1, 'poker', advance)).rejects.toMatchObject({
+      status: 404,
+      code: 'casino.no_game'
+    });
+    await expect(
+      step(1, 'poker', advance, undefined, { codes: { pending: 'p', missing: 'casino.no_hand' } })
+    ).rejects.toMatchObject({ code: 'casino.no_hand' });
+  });
+
+  test('never counts towards the limit', async () => {
+    store({ bet: 100, n: 0, top: 500 });
+    await step(1, 'poker', advance);
+    await step(1, 'poker', advance);
+    expect(limitHits).toBe(0);
+  });
+
+  test('swaps the next state in over the one it read', async () => {
+    store({ bet: 100, n: 0, top: 500 });
+    const before = keys[KEY];
+    expect(await step(1, 'poker', advance)).toEqual({ view: { bet: 100, n: 1 } });
+    expect(stored()).toEqual({ bet: 100, n: 1, top: 500 });
+    expect(swaps).toEqual([[before, keys[KEY]]]);
+    expect(setArgs).toEqual([]);
+    expect(updates).toEqual([]);
+    expect(history).toEqual([]);
+  });
+
+  test('a throwing move leaves the state alone', async () => {
+    store({ bet: 100, n: 0, top: 500 });
+    const before = keys[KEY];
+    await expect(
+      step(1, 'poker', () => {
+        throw new Error('bad move');
+      })
+    ).rejects.toThrow('bad move');
+    expect(keys[KEY]).toBe(before);
+  });
+
+  test('a charge deducts and raises the bet', async () => {
+    store({ bet: 100, n: 0, top: 500 });
+    const played = await step(1, 'poker', (state: Game) => ({ ...advance(state), charge: 100 }));
+    expect(played).toEqual({ view: { bet: 100, n: 1 }, balance: 900 });
+    expect(updates).toEqual([[100, 1]]);
+    expect(stored()).toEqual({ bet: 200, n: 1, top: 500 });
+    expect(history).toEqual([]);
+  });
+
+  test('a charge without the coins is a 402 and leaves the state', async () => {
+    store({ bet: 100, n: 0, top: 500 });
+    const before = keys[KEY];
+    user = { coins: 50, privileges: 1n };
+    await expect(
+      step(1, 'poker', (state: Game) => ({ ...advance(state), charge: 100 }))
+    ).rejects.toMatchObject({ status: 402, code: 'casino.insufficient_coins' });
+    expect(keys[KEY]).toBe(before);
+    expect(updates).toEqual([]);
+  });
+
+  test('a charge whose commit fails puts the state back', async () => {
+    store({ bet: 100, n: 0, top: 500 });
+    const before = keys[KEY];
+    failCommit = true;
+    await expect(
+      step(1, 'poker', (state: Game) => ({ ...advance(state), charge: 100 }))
+    ).rejects.toThrow('commit failed');
+    expect(keys[KEY]).toBe(before);
+  });
+
+  test('a settle pays the buffed payout, records the stored bet and clears the game', async () => {
+    store({ bet: 100, n: 2, top: 500 });
+    user = { coins: 900, privileges: 1n | 4n };
+    const played = await step(1, 'poker', cashOut(2.5, 250));
+    expect(played).toEqual({
+      view: { bet: 100, n: 2 },
+      result: { won: true },
+      payout: 265,
+      multiplier: 2.5,
+      balance: 1165
+    });
+    expect(updates).toEqual([[265, 1]]);
+    expect(history).toEqual([
+      {
+        user_id: 1,
+        game_type: 'poker',
+        bet_amount: 100,
+        multiplier: 2.5,
+        payout: 265,
+        result_data: { won: true }
+      }
+    ]);
+    expect(keys[KEY]).toBeUndefined();
+  });
+
+  test('a loss records a zero multiplier', async () => {
+    store({ bet: 100, n: 2, top: 500 });
+    const played = await step(1, 'poker', cashOut(3, 0));
+    expect(played).toMatchObject({ payout: 0, multiplier: 0, balance: 1000 });
+    expect(history).toMatchObject([{ multiplier: 0, payout: 0, bet_amount: 100 }]);
+    expect(keys[KEY]).toBeUndefined();
+  });
+
+  test('a refund skips the supporter buff', async () => {
+    store({ bet: 100, n: 0, top: 500 });
+    user = { coins: 900, privileges: 1n | 4n };
+    const played = await step(1, 'poker', (state: Game) => ({
+      settle: { multiplier: 1, base: state.bet, result: { won: false }, refund: true },
+      view: view(state)
+    }));
+    expect(played).toMatchObject({ payout: 100, multiplier: 1, balance: 1000 });
+    expect(history).toMatchObject([{ multiplier: 1, payout: 100, bet_amount: 100 }]);
+  });
+
+  test('a charge that settles takes and pays in one transaction', async () => {
+    store({ bet: 100, n: 1, top: 500 });
+    const played = await step(1, 'poker', cashOut(2, 400, { charge: 100 }));
+    expect(played).toMatchObject({ payout: 400, multiplier: 2, balance: 1300 });
+    expect(updates).toEqual([[100, 400, 1]]);
+    expect(history).toMatchObject([{ bet_amount: 200, payout: 400, multiplier: 2 }]);
+    expect(keys[KEY]).toBeUndefined();
+  });
+
+  test('a charge that settles without the coins is a 402 and keeps the game', async () => {
+    store({ bet: 100, n: 1, top: 500 });
+    const before = keys[KEY];
+    user = { coins: 50, privileges: 1n };
+    await expect(step(1, 'poker', cashOut(2, 400, { charge: 100 }))).rejects.toMatchObject({
+      status: 402
+    });
+    expect(keys[KEY]).toBe(before);
+    expect(updates).toEqual([]);
+    expect(history).toEqual([]);
+  });
+
+  test('a failed payout restores the exact state with NX', async () => {
+    store({ bet: 100, n: 2, top: 500 });
+    const before = keys[KEY];
+    failExecute = true;
+    await expect(step(1, 'poker', cashOut(2, 200))).rejects.toThrow('update failed');
+    expect(keys[KEY]).toBe(before);
+    expect(history).toEqual([]);
+    expect(setArgs.at(-1)).toEqual(['NX']);
+  });
+
+  test('a failed commit restores the exact state', async () => {
+    store({ bet: 100, n: 2, top: 500 });
+    const before = keys[KEY];
+    failCommit = true;
+    await expect(step(1, 'poker', cashOut(2, 200))).rejects.toThrow('commit failed');
+    expect(keys[KEY]).toBe(before);
+  });
+
+  test('concurrent steps run one after the other', async () => {
+    store({ bet: 100, n: 0, top: 500 });
+    await Promise.all([step(1, 'poker', advance), step(1, 'poker', advance)]);
+    expect(stored().n).toBe(2);
+  });
+
+  test('concurrent settles pay once', async () => {
+    store({ bet: 100, n: 2, top: 500 });
+    const results = await Promise.allSettled([
+      step(1, 'poker', cashOut(2, 200)),
+      step(1, 'poker', cashOut(2, 200))
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+    expect(results.find((r) => r.status === 'rejected')).toMatchObject({
+      reason: { status: 404 }
+    });
+    expect(updates).toEqual([[200, 1]]);
+    expect(history).toHaveLength(1);
+  });
+
+  test('a state changed under the step is a 409 and keeps the change', async () => {
+    store({ bet: 100, n: 0, top: 500 });
+    await expect(
+      step(1, 'poker', (state: Game) => {
+        keys[KEY] = 'changed';
+        return advance(state);
+      })
+    ).rejects.toMatchObject({ status: 409, code: 'casino.busy' });
+    expect(keys[KEY]).toBe('changed');
+  });
+
+  test('a charge whose write lands and then throws puts the state back', async () => {
+    store({ bet: 100, n: 0, top: 500 });
+    const before = keys[KEY];
+    throwAfterSwap = true;
+    await expect(
+      step(1, 'poker', (state: Game) => ({ ...advance(state), charge: 100 }))
+    ).rejects.toThrow('connection lost');
+    expect(keys[KEY]).toBe(before);
+    expect(updates).toEqual([]);
+  });
+
+  test('a charge on a state changed under it is a 409 and takes nothing', async () => {
+    store({ bet: 100, n: 0, top: 500 });
+    await expect(
+      step(1, 'poker', (state: Game) => {
+        keys[KEY] = 'changed';
+        return { ...advance(state), charge: 100 };
+      })
+    ).rejects.toMatchObject({ status: 409, code: 'casino.busy' });
+    expect(keys[KEY]).toBe('changed');
+    expect(updates).toEqual([]);
+  });
+
+  test('a charge from a restricted player is a 403 and leaves the state', async () => {
+    store({ bet: 100, n: 0, top: 500 });
+    const before = keys[KEY];
+    user = { coins: 1000, privileges: 0n };
+    await expect(
+      step(1, 'poker', (state: Game) => ({ ...advance(state), charge: 100 }))
+    ).rejects.toMatchObject({ status: 403 });
+    expect(keys[KEY]).toBe(before);
+    expect(updates).toEqual([]);
+  });
+
+  test('a claim that finds a different state puts it back and is a 409', async () => {
+    store({ bet: 100, n: 2, top: 500 });
+    beforeGetdel = () => (keys[KEY] = 'changed');
+    await expect(step(1, 'poker', cashOut(2, 200))).rejects.toMatchObject({
+      status: 409,
+      code: 'casino.busy'
+    });
+    expect(keys[KEY]).toBe('changed');
+    expect(updates).toEqual([]);
+    expect(history).toEqual([]);
+  });
+
+  test('records the multiplier rounded and capped', async () => {
+    store({ bet: 100, n: 2, top: 500 });
+    expect(await step(1, 'poker', cashOut(2.346, 234))).toMatchObject({ multiplier: 2.35 });
+    store({ bet: 100, n: 2, top: 500 });
+    expect(await step(1, 'poker', cashOut(12000, 1_200_000))).toMatchObject({
+      multiplier: 9999.99,
+      payout: 1_200_000
+    });
+    expect(history).toMatchObject([{ multiplier: 2.35 }, { multiplier: 9999.99 }]);
+  });
+
+  test('a bad base throws before the game is claimed', async () => {
+    store({ bet: 100, n: 2, top: 500 });
+    const before = keys[KEY];
+    await expect(step(1, 'poker', cashOut(2, 2.5))).rejects.toThrow('Bad settle base');
+    await expect(step(1, 'poker', cashOut(2, -1))).rejects.toThrow('Bad settle base');
+    expect(keys[KEY]).toBe(before);
+    expect(updates).toEqual([]);
+  });
+});
+
+describe('pending', () => {
+  test('is the view of a running game or null', async () => {
+    expect(await pending(1, 'poker', view)).toBeNull();
+    store({ bet: 100, n: 4, top: 500 });
+    expect(await pending(1, 'poker', view)).toEqual({ bet: 100, n: 4 });
+  });
+
+  test('is null for a state that does not parse', async () => {
+    keys[KEY] = '{nope';
+    expect(await pending(1, 'poker', view)).toBeNull();
+  });
+});

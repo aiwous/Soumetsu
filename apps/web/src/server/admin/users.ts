@@ -3,13 +3,20 @@ import bcrypt from 'bcryptjs';
 import { config } from '$server/config';
 import { db } from '$server/db';
 import { md5 } from '$server/identity';
+import { ifLazerTables } from '$server/lazer';
 import { redis } from '$server/redis';
 import { Failure } from '$server/respond';
-import { kick, removeFromLeaderboards } from './bancho';
+import { kick, removeFromLeaderboards, removeFromScopeLeaderboards } from './bancho';
 import { rapLog } from './log';
 
 const SUFFIXES = ['_std', '_taiko', '_ctb', '_mania'];
-const STAT_TABLES = { va: 'users_stats', rx: 'rx_stats', ap: 'ap_stats' } as const;
+const STAT_TABLES = {
+  va: 'users_stats',
+  rx: 'rx_stats',
+  ap: 'ap_stats',
+  lz: 'lazer_stats'
+} as const;
+const LAZER_STAT_TABLES = ['lazer_stats', 'lazer_rx_stats', 'lazer_ap_stats'];
 const SCORE_TABLES = { va: 'scores', rx: 'scores_relax', ap: 'scores_ap' } as const;
 const CUSTOM = { va: 0, rx: 1, ap: 2 } as const;
 const STAT_COLUMNS = [
@@ -80,6 +87,23 @@ async function recalcFirstPlace(beatmapMd5: string, custom: number, mode: number
 
 export async function wipeStats(userId: number, { modes, types }: Scope) {
   for (const type of types) {
+    if (type === 'lz') {
+      const columns = modes.flatMap((mode) =>
+        STAT_COLUMNS.map((column) => `${column}${SUFFIXES[mode]} = 0`)
+      );
+      for (const table of LAZER_STAT_TABLES) {
+        await ifLazerTables(
+          db.$executeRawUnsafe(`UPDATE ${table} SET ${columns.join(', ')} WHERE id = ?`, userId)
+        );
+      }
+      await ifLazerTables(
+        db.$executeRawUnsafe(
+          `DELETE FROM lazer_scores WHERE user_id = ? AND ruleset_id IN (${modes.join(',')})`,
+          userId
+        )
+      );
+      continue;
+    }
     const columns = modes.flatMap((mode) => [
       ...STAT_COLUMNS.map((column) => `${column}${SUFFIXES[mode]} = 0`),
       ...(mode === 0 ? ['unrestricted_pp = 0'] : [])
@@ -93,11 +117,23 @@ export async function wipeStats(userId: number, { modes, types }: Scope) {
       userId
     );
   }
+  const user = await db.users.findUnique({ where: { id: userId }, select: { country: true } });
+  await removeFromScopeLeaderboards(userId, user?.country ?? null, { modes, types });
 }
 
 export async function rollback(userId: number, days: number, { modes, types }: Scope) {
   const cutoff = Math.floor(Date.now() / 1000) - days * 86400;
   for (const type of types) {
+    if (type === 'lz') {
+      await ifLazerTables(
+        db.$executeRawUnsafe(
+          `DELETE FROM lazer_scores WHERE user_id = ? AND created_at > FROM_UNIXTIME(?) AND ruleset_id IN (${modes.join(',')})`,
+          userId,
+          cutoff
+        )
+      );
+      continue;
+    }
     const table = SCORE_TABLES[type];
     const where = `userid = ? AND time > ? AND play_mode IN (${modes.join(',')})`;
     const affected = await db.$queryRawUnsafe<{ beatmap_md5: string; play_mode: number }[]>(
@@ -249,7 +285,7 @@ export async function changePassword(userId: number, password: string) {
   await redis.publish('peppy:change_pass', JSON.stringify({ user_id: userId }));
 }
 
-async function takenBy(username: string, ignore: number) {
+export async function takenBy(username: string, ignore: number) {
   const current = await db.users.findFirst({ where: { username }, select: { id: true } });
   if (current) return current.id;
   const old = await db.user_name_history.findFirst({
@@ -351,6 +387,8 @@ export async function deleteAccount(userId: number, authorization: string) {
         if (!String(error).includes("doesn't exist")) throw error;
       });
   }
+
+  await ifLazerTables(db.$executeRaw`DELETE FROM lazer_tokens WHERE user_id = ${userId}`);
 
   const name = `DeletedUser_${userId}`;
   const unusable = await bcrypt.hash(randomBytes(32).toString('hex'), 10);

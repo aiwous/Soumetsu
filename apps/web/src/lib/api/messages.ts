@@ -104,8 +104,34 @@ const messages: Record<string, Message> = {
   'site.messages_silenced': m.common_error_messages_silenced,
   'site.messages_restricted': m.common_error_messages_restricted,
   'site.messages_too_fast': m.common_error_messages_too_fast,
+  'site.channel_not_found': m.common_error_channel_not_found,
+  'site.channel_no_commands': m.common_error_channel_no_commands,
+  'site.channel_moderated': m.common_error_channel_moderated,
+  'site.too_many_streams': m.common_error_too_many_streams,
   'site.report_needs_info': m.common_error_report_needs_info,
   'site.report_already_sent': m.common_error_report_already_sent,
+
+  'commissions.tier_locked': m.commissions_claim_failed_locked,
+  'commissions.already_claimed': m.commissions_claim_failed_claimed,
+  'commissions.day_missing': m.commissions_claim_failed_missing,
+
+  'shop.insufficient_coins': m.shop_err_insufficient,
+  'shop.unavailable': m.shop_err_unavailable,
+  'shop.already_owned': m.shop_err_owned,
+  'shop.username_taken': m.shop_err_username_taken,
+  'shop.username_invalid': m.shop_err_username_invalid,
+  'shop.too_fast': m.shop_err_too_fast,
+
+  'casino.disabled': m.casino_err_disabled,
+  'casino.invalid_bet': m.casino_err_invalid_bet,
+  'casino.insufficient_coins': m.casino_err_insufficient,
+  'casino.too_fast': m.casino_err_too_fast,
+  'casino.busy': m.casino_err_busy,
+  'casino.hand_pending': m.casino_err_hand_pending,
+  'casino.no_hand': m.casino_err_no_hand,
+  'casino.game_pending': m.casino_err_game_pending,
+  'casino.no_game': m.casino_err_no_game,
+  'casino.invalid_move': m.casino_err_invalid_move,
 
   network_error: m.common_error_network
 };

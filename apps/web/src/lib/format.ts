@@ -7,6 +7,17 @@ export const number = (value: number, decimals = 0) =>
     maximumFractionDigits: decimals
   });
 
+export const compact = (value: number) =>
+  new Intl.NumberFormat(intlLocale(), { notation: 'compact', maximumFractionDigits: 1 }).format(
+    value
+  );
+
+// Up to two decimals, without trailing zeros: 0.5, 2.25, 10.
+export const decimal = (value: number) => {
+  const rounded = Math.round(value * 100) / 100;
+  return number(rounded, (String(rounded).split('.')[1] ?? '').length);
+};
+
 // Rounded to days, months and years; Intl words it ("yesterday", "3 дня назад") in the chosen language.
 export function timeAgo(unixSeconds: number) {
   const days = Math.floor((Date.now() / 1000 - unixSeconds) / 86_400);
@@ -15,6 +26,16 @@ export function timeAgo(unixSeconds: number) {
   const months = Math.floor(days / 30);
   if (months < 12) return relative.format(-months, 'month');
   return relative.format(-Math.floor(days / 365), 'year');
+}
+
+// "in 5 hours", "in 12 minutes", worded by Intl in the chosen language.
+export function timeUntil(unixSeconds: number) {
+  const minutes = Math.max(1, Math.round((unixSeconds - Date.now() / 1000) / 60));
+  const relative = new Intl.RelativeTimeFormat(intlLocale(), { numeric: 'auto' });
+  if (minutes < 60) return relative.format(minutes, 'minute');
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return relative.format(hours, 'hour');
+  return relative.format(Math.round(hours / 24), 'day');
 }
 
 export const monthYear = (unixSeconds: number) =>
@@ -62,3 +83,20 @@ export function dayLabel(unixSeconds: number) {
     year: 'numeric'
   });
 }
+
+export const fromIso = (iso: string) => Date.parse(iso) / 1000;
+
+export const clock = (unixSeconds: number) =>
+  new Date(unixSeconds * 1000).toLocaleTimeString(intlLocale(), {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+// Daily challenge dates are UTC calendar days, so they're formatted in UTC whatever the viewer's zone.
+export const utcDay = (date: string) =>
+  new Date(`${date}T00:00:00Z`).toLocaleDateString(intlLocale(), {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC'
+  });

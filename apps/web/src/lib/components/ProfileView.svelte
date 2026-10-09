@@ -3,6 +3,8 @@
   import { untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
+  import { commissionStreaks } from '$lib/api/commissions';
+  import { dailyStats } from '$lib/api/dailyChallenge';
   import { isApiError } from '$lib/api/errors';
   import { query } from '$lib/api/query.svelte';
   import { playerScores, type ScoreWithBeatmap } from '$lib/api/scores';
@@ -22,7 +24,7 @@
   import { fullDate, monthYear, number, timeAgo } from '$lib/format';
   import { badgeIcon } from '$lib/badges';
   import { decorationClass } from '$lib/decorations';
-  import { allowed, modeNames, relaxNames, slideTowards } from '$lib/modes';
+  import { allowed, isLazer, modeNames, parseRx, relaxNames, slideTowards } from '$lib/modes';
   import { m } from '$lib/paraglide/messages';
   import { playStyleNames } from '$lib/playstyles';
   import Avatar from './Avatar.svelte';
@@ -41,7 +43,6 @@
   import ProfilePane from './ProfilePane.svelte';
   import ProfileStats from './ProfileStats.svelte';
   import RelaxTabs from './RelaxTabs.svelte';
-  import ScoreDialog from './ScoreDialog.svelte';
   import SectionTitle from './SectionTitle.svelte';
   import Userpage from './Userpage.svelte';
 
@@ -50,13 +51,25 @@
   const playStyles = playStyleNames();
 
   const extras = query((signal) => userExtras(id, signal));
+  const dailyQuery = query((signal) => dailyStats(id, signal));
+  const daily = $derived(
+    dailyQuery.state.status === 'ready' && dailyQuery.state.data.total_days > 0
+      ? dailyQuery.state.data
+      : null
+  );
+  const commissionQuery = query((signal) => commissionStreaks(id, signal));
+  const commissions = $derived(
+    commissionQuery.state.status === 'ready' && commissionQuery.state.data.totalDays > 0
+      ? commissionQuery.state.data
+      : null
+  );
   const page_ = query((signal) => userpage(id, signal));
   const own = $derived(session.user?.id === id);
   const extra = $derived(extras.state.status === 'ready' ? extras.state.data : null);
 
   const view = $derived.by(() => {
     const q = page.url.searchParams;
-    const rx = [0, 1, 2].includes(Number(q.get('rx'))) && q.has('rx') ? Number(q.get('rx')) : 0;
+    const rx = parseRx(q.get('rx'));
     const fallback = extra?.favouriteMode ?? 0;
     const asked = q.has('mode') ? Number(q.get('mode')) : fallback;
     return { rx, mode: allowed(asked, rx) ? asked : 0 };
@@ -107,7 +120,7 @@
     const current = key;
     const { mode, rx } = view;
     // Re-runs after a pin or unpin, which bumps this counter.
-    if (refresh < 0) return;
+    if (refresh < 0 || isLazer(rx)) return;
     playerScores('pinned', id, mode, rx, 1, 50).then(
       (rows) => (pinned = { ...pinned, [current]: rows }),
       () => null
@@ -131,8 +144,6 @@
   // Only staff get this far on a restricted profile; the player sees the site-wide restricted notice instead.
   const restrictedToStaff = $derived(!!base && (base.privileges & Privilege.Public) === 0 && !own);
 
-  let detail = $state<ScoreWithBeatmap | null>(null);
-  let detailOpen = $state(false);
   let pinTarget = $state<ScoreWithBeatmap | null>(null);
   let pinOpen = $state(false);
   let commentTotal = $derived(extra?.commentCount ?? 0);
@@ -342,6 +353,8 @@
                 country={countryName(loaded[pane].country)}
                 peakRank={peak[pane] ?? null}
                 history={rankHistory[pane]?.status === 'ready' ? rankHistory[pane].points : []}
+                {daily}
+                {commissions}
               />
             {/if}
           {:else}
@@ -370,10 +383,6 @@
                 firstPlaces={loaded[pane].stats.first_places}
                 rankHistory={rankHistory[pane]}
                 pinned={pinned[pane] ?? null}
-                ondetails={(score) => {
-                  detail = score;
-                  detailOpen = true;
-                }}
                 onpin={(score) => {
                   pinTarget = score;
                   pinOpen = true;
@@ -412,6 +421,20 @@
 
       <Medals {id} />
 
+      <SectionTitle colour="c-purple" icon="fa-clock-rotate-left">
+        {m.profile_match_history()}
+      </SectionTitle>
+      <div class="panel history-links c-purple">
+        <a href="/users/{id}/ranked-play">
+          <i class="fa-solid fa-ranking-star"></i>{m.ranked_title()}
+          <i class="fa-solid fa-chevron-right"></i>
+        </a>
+        <a href="/users/{id}/multiplayer">
+          <i class="fa-solid fa-users"></i>{m.multiplayer_title()}
+          <i class="fa-solid fa-chevron-right"></i>
+        </a>
+      </div>
+
       <SectionTitle colour="c-teal" icon="fa-comments">
         {m.profile_comments_title()} <small>{number(commentTotal)}</small>
       </SectionTitle>
@@ -423,7 +446,6 @@
     </div>
   </main>
 
-  <ScoreDialog score={detail} bind:open={detailOpen} />
   <PinDialog
     score={pinTarget}
     pinned={pinIsPinned}

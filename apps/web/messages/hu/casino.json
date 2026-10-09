@@ -1,0 +1,182 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "casino_title": "Kaszinó",
+  "casino_balance": [
+    {
+      "declarations": ["input count", "local n = count: plural"],
+      "selectors": ["n"],
+      "match": {
+        "n=one": "{coins} érme",
+        "n=other": "{coins} érme"
+      }
+    }
+  ],
+  "casino_games": "Játékok",
+  "casino_play": "Játssz",
+  "casino_history_title": "Előzmények",
+  "casino_shop_link": "Bolt",
+  "casino_history_empty": "Még nem játszottál.",
+  "casino_bet": "Tét",
+  "casino_bet_half": "½",
+  "casino_bet_double": "2×",
+  "casino_bet_max": "Max",
+  "casino_coinflip_title": "Fej vagy írás",
+  "casino_heads": "Fej",
+  "casino_tails": "Írás",
+  "casino_flip": "Feldobás",
+  "casino_flipping": "Dobás…",
+  "casino_won": [
+    {
+      "declarations": ["input count", "local n = count: plural"],
+      "selectors": ["n"],
+      "match": {
+        "n=one": "Nyertél {coins} érmét!",
+        "n=other": "Nyertél {coins} érmét!"
+      }
+    }
+  ],
+  "casino_lost": [
+    {
+      "declarations": ["input count", "local n = count: plural"],
+      "selectors": ["n"],
+      "match": {
+        "n=one": "Vesztettél {coins} érmét.",
+        "n=other": "Vesztettél {coins} érmét."
+      }
+    }
+  ],
+  "casino_err_disabled": "Ez a játék most ki van kapcsolva.",
+  "casino_err_invalid_bet": "Ez a tét nem megengedett.",
+  "casino_err_insufficient": "Nincs elég érméd.",
+  "casino_err_too_fast": "Lassabban.",
+  "casino_err_busy": "Előbb fejezd be a jelenlegi játékot.",
+  "casino_game_coinflip": "Fej vagy írás",
+  "casino_game_coinflip_blurb": "Fej vagy írás. Duplázás vagy semmi.",
+  "casino_game_plinko": "Plinko",
+  "casino_game_plinko_blurb": "Dobj le egy golyót, és nézd, ahogy pattog.",
+  "casino_game_slots": "Nyerőgép",
+  "casino_game_slots_blurb": "Három henger, egy húzás.",
+  "casino_game_roulette": "Rulett",
+  "casino_game_roulette_blurb": "Válassz számot, színt, vagy játssz biztosra.",
+  "casino_game_wheel": "Szerencsekerék",
+  "casino_game_wheel_blurb": "Pörgesd meg a kereket.",
+  "casino_game_bingo": "Bingó",
+  "casino_game_bingo_blurb": "Jelöld a számokat a kártyádon, ahogy jönnek.",
+  "casino_game_chicken_road": "Csirke az úton",
+  "casino_game_chicken_road_blurb": "Menj át az úton, és szállj ki időben, mielőtt elütnek.",
+  "casino_game_aviator": "Aviator",
+  "casino_game_aviator_blurb": "Szállj ki időben, mielőtt a gép elrepül.",
+  "casino_game_mines": "Aknák",
+  "casino_game_mines_blurb": "Kerüld ki az aknákat, és szállj ki, amikor akarsz.",
+  "casino_game_poker": "Póker",
+  "casino_game_poker_blurb": "Bubi pár vagy jobb.",
+  "casino_game_zeus": "Zeusz",
+  "casino_game_zeus_blurb": "Villámok a hengereken.",
+  "casino_game_blackjack": "Blackjack",
+  "casino_game_blackjack_blurb": "Verd meg az osztót 21 pontig.",
+  "casino_rows": "Sorok",
+  "casino_risk": "Kockázat",
+  "casino_risk_low": "Alacsony",
+  "casino_risk_medium": "Közepes",
+  "casino_risk_high": "Magas",
+  "casino_drop": "Ejtés",
+  "casino_spin": "Pörgetés",
+  "casino_spinning": "Pörög…",
+  "casino_bet_type": "Fogadás",
+  "casino_rl_straight": "Egy szám",
+  "casino_rl_red": "Piros",
+  "casino_rl_black": "Fekete",
+  "casino_rl_green": "Zöld",
+  "casino_rl_even": "Páros",
+  "casino_rl_odd": "Páratlan",
+  "casino_rl_low": "1–18",
+  "casino_rl_high": "19–36",
+  "casino_rl_dozen1": "1. tucat",
+  "casino_rl_dozen2": "2. tucat",
+  "casino_rl_dozen3": "3. tucat",
+  "casino_rl_col1": "1. oszlop",
+  "casino_rl_col2": "2. oszlop",
+  "casino_rl_col3": "3. oszlop",
+  "casino_rl_number": "Szám",
+  "casino_no_line": "Most nincs vonal.",
+  "casino_deal": "Osztás",
+  "casino_draw": "Csere",
+  "casino_hold": "Megtart",
+  "casino_held": "Megtartva",
+  "casino_hand_royal_flush": "Royal flush",
+  "casino_hand_straight_flush": "Színsor",
+  "casino_hand_four_of_a_kind": "Póker",
+  "casino_hand_full_house": "Full",
+  "casino_hand_flush": "Flush",
+  "casino_hand_straight": "Sor",
+  "casino_hand_three_of_a_kind": "Drill",
+  "casino_hand_two_pair": "Két pár",
+  "casino_hand_jacks_or_better": "Bubi pár vagy jobb",
+  "casino_hand_nothing": "Semmi",
+  "casino_paytable": "Kifizetési tábla",
+  "casino_wins": "Nyeremények",
+  "casino_wild": "Joker",
+  "casino_jackpot": "Jackpot",
+  "casino_penalty": "Büntetés",
+  "casino_landed": "Ide esett: {label}",
+  "casino_err_hand_pending": "Előbb fejezd be a jelenlegi leosztást.",
+  "casino_err_no_hand": "Előbb ossz lapot.",
+  "casino_lines_won": [
+    {
+      "declarations": ["input count", "local n = count: plural"],
+      "selectors": ["n"],
+      "match": {
+        "n=one": "{count} vonal",
+        "n=other": "{count} vonal"
+      }
+    }
+  ],
+  "casino_calls": [
+    {
+      "declarations": ["input count", "local n = count: plural"],
+      "selectors": ["n"],
+      "match": {
+        "n=one": "{count} húzás",
+        "n=other": "{count} húzás"
+      }
+    }
+  ],
+  "casino_line": "Vonal",
+  "casino_column": "Oszlop",
+  "casino_mines_count": [
+    {
+      "declarations": ["input count", "local n = count: plural"],
+      "selectors": ["n"],
+      "match": {
+        "n=one": "{count} akna",
+        "n=other": "{count} akna"
+      }
+    }
+  ],
+  "casino_reveal": "Felfedés",
+  "casino_tile_gem": "Drágakő",
+  "casino_tile_mine": "Akna",
+  "casino_tile_hit": "Robbanás",
+  "casino_cash_out": "Kifizetés",
+  "casino_next_tile": "Következő mező",
+  "casino_step": "Lépés",
+  "casino_crashed": "Lezuhant",
+  "casino_cashed_out": "Kifizetve",
+  "casino_hit": "Húzok",
+  "casino_stand": "Megállok",
+  "casino_double": "Duplázás",
+  "casino_dealer": "Osztó",
+  "casino_you": "Te",
+  "casino_bj_blackjack": "Blackjack!",
+  "casino_bj_win": "Nyertél",
+  "casino_bj_lose": "Az osztó nyert",
+  "casino_bj_push": "Döntetlen, a tét visszajár",
+  "casino_bj_dealer_blackjack": "Az osztónak blackjackje van",
+  "casino_bj_bust": "Besokalltál",
+  "casino_bj_dealer_bust": "Az osztó besokallt",
+  "casino_fly": "Indulás",
+  "casino_flying": "Repülünk",
+  "casino_err_game_pending": "Előbb fejezd be a jelenlegi játékot.",
+  "casino_err_no_game": "Nincs futó játék.",
+  "casino_err_invalid_move": "Ezt most nem teheted."
+}
